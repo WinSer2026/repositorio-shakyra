@@ -6,8 +6,9 @@ que deteta automaticamente o entrypoint `app.py` deste repositório.
 
 import json
 import os
+import unicodedata
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from flask import (
     Flask,
@@ -36,14 +37,9 @@ DEFAULT_USERS = {
 
 DOWNLOAD_PASSWORD = "download_secure_2026"
 
-# Em ambientes serverless (Vercel) o código é montado em modo só-leitura e
-# apenas /tmp permite escrita, onde ficam guardados os utilizadores criados
-# no painel de administração.
 TMP_DIR = Path(os.environ.get("TMPDIR") or "/tmp")
 TMP_USERS_FILE = TMP_DIR / "shakyra_users.json"
 
-# Acima deste tamanho a resposta é enviada em streaming, para não exceder o
-# limite de 4,5 MB por resposta das Vercel Functions.
 STREAM_THRESHOLD = 3 * 1024 * 1024
 CHUNK_SIZE = 256 * 1024
 
@@ -98,6 +94,8 @@ def save_users(users):
 
 
 def _doc_files():
+    if not DOCS_HTML_DIR.is_dir():
+        return []
     return sorted(
         (f.name for f in DOCS_HTML_DIR.glob("*.html")),
         key=lambda name: name.casefold(),
@@ -105,24 +103,110 @@ def _doc_files():
 
 
 def _original_files():
+    if not ORIGINALS_DIR.is_dir():
+        return []
     return sorted(
         (f.name for f in ORIGINALS_DIR.glob("*.*") if f.is_file() and not f.name.startswith("~$")),
         key=lambda name: name.casefold(),
     )
 
 
-def _safe_file(directory, filename):
-    """Impede acesso a ficheiros fora do diretório pretendido."""
+def _categorize(name):
+    lower = name.lower()
+    if "shakyra" in lower or "universidade" in lower or "relatorio_fonte_referencia" in lower:
+        return "Monografia & Referência"
+    if any(k in lower for k in ["relatorio_0", "base_dados", "planilha", "apresentacao"]):
+        return "Relatórios Principais & Estratégicos"
+    if any(k in lower for k in ["dr_", "dra_", "eng_", "sr_"]):
+        return "Inquéritos Individuais (Respondentes Chave)"
+    if "tom_a" in lower or "tom_b" in lower or "dois_tons" in lower:
+        return "Inquéritos por Tom Separado"
+    if any(k in lower for k in ["inquerito_rf", "inquerito_rreg", "inquerito_rsc", "relatorio_inquerito_rsc"]):
+        return "Painel Completo N=35 (Transportadoras e Reguladores)"
+    if any(k in lower for k in ["cfm", "ine", "petromoc", "worldbank"]):
+        return "Portais Oficiais & Fontes Externas"
+    return "Outros Documentos"
+
+
+def _get_doc_items():
+    files = _doc_files()
+    items = []
+    for idx, fname in enumerate(files):
+        title = fname.removesuffix(".html").replace("_", " ")
+        fpath = DOCS_HTML_DIR / fname
+        size_kb = round(fpath.stat().st_size / 1024, 1) if fpath.exists() else 0
+        items.append({
+            "id": idx,
+            "filename": fname,
+            "title": title,
+            "category": _categorize(fname),
+            "size_kb": size_kb,
+        })
+    return items
+
+
+def _get_original_items():
+    files = _original_files()
+    items = []
+    for idx, fname in enumerate(files):
+        fpath = ORIGINALS_DIR / fname
+        size_kb = round(fpath.stat().st_size / 1024, 1) if fpath.exists() else 0
+        ext = fpath.suffix.lower().replace(".", "").upper()
+        title = fpath.stem.replace("_", " ")
+        items.append({
+            "id": idx,
+            "filename": fname,
+            "title": title,
+            "category": _categorize(fname),
+            "ext": ext,
+            "size_kb": size_kb,
+        })
+    return items
+
+
+def _resolve_target_file(directory, identifier, file_list):
+    """Localiza o ficheiro pretendido de forma segura e flexível por ID numérico ou nome."""
     directory = directory.resolve()
-    candidate = (directory / filename).resolve()
-    if candidate.parent != directory or not candidate.is_file():
-        abort(404)
-    return candidate
+    
+    # 1. Se for ID numérico (ex: 0, 1, 2)
+    if identifier.isdigit():
+        idx = int(identifier)
+        if 0 <= idx < len(file_list):
+            candidate = directory / file_list[idx]
+            if candidate.is_file():
+                return candidate
+
+    # 2. Tentativa direta com o nome e variantes descodificadas (URL unquote)
+    raw = identifier
+    dec1 = unquote(raw)
+    dec2 = unquote(dec1)
+    for cand_name in (raw, dec1, dec2):
+        candidate = (directory / cand_name).resolve()
+        if candidate.parent == directory and candidate.is_file():
+            return candidate
+
+    # 3. Comparação com tolerância a codificação Unicode (NFC vs NFD) e maiúsculas/minúsculas
+    targets = set()
+    for name in (raw, dec1, dec2):
+        targets.add(unicodedata.normalize("NFC", name).casefold())
+        targets.add(unicodedata.normalize("NFD", name).casefold())
+
+    for f in directory.iterdir():
+        if not f.is_file():
+            continue
+        fn_c = unicodedata.normalize("NFC", f.name).casefold()
+        fn_d = unicodedata.normalize("NFD", f.name).casefold()
+        if fn_c in targets or fn_d in targets:
+            return f
+
+    abort(404)
 
 
 def _content_disposition(filename):
     fallback = filename.encode("ascii", "ignore").decode("ascii").replace('"', "").strip()
-    return 'attachment; filename="%s"; filename*=UTF-8\'\'%s' % (fallback or "download", quote(filename, safe=""))
+    if not fallback:
+        fallback = "documento"
+    return 'attachment; filename="%s"; filename*=UTF-8\'\'%s' % (fallback, quote(filename, safe=""))
 
 
 def _file_response(path):
@@ -197,21 +281,34 @@ def healthz():
 def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
+    doc_items = _get_doc_items()
+    # Agrupar por categorias
+    categories = {}
+    for item in doc_items:
+        categories.setdefault(item["category"], []).append(item)
     return render_template(
         "dashboard.html",
         user=session["user"],
         role=session.get("role", "user"),
-        files=_doc_files(),
+        categories=categories,
+        total_docs=len(doc_items),
     )
 
 
-@app.route("/view/<filename>")
-def view_doc(filename):
+@app.route("/view/<path:identifier>")
+def view_doc(identifier):
     if "user" not in session:
         return redirect(url_for("login"))
-    fpath = _safe_file(DOCS_HTML_DIR, filename)
+    doc_list = _doc_files()
+    fpath = _resolve_target_file(DOCS_HTML_DIR, identifier, doc_list)
     content = fpath.read_text(encoding="utf-8", errors="ignore")
-    return render_template("viewer.html", filename=filename, content=content, user=session["user"])
+    return render_template(
+        "viewer.html",
+        filename=fpath.name,
+        title=fpath.stem.replace("_", " "),
+        content=content,
+        user=session["user"],
+    )
 
 
 @app.route("/downloads", methods=["GET", "POST"])
@@ -226,19 +323,27 @@ def downloads():
             unlocked = True
         else:
             error = "Senha de download incorreta."
+    
+    orig_items = _get_original_items()
+    categories = {}
+    for item in orig_items:
+        categories.setdefault(item["category"], []).append(item)
+
     return render_template(
         "downloads.html",
         unlocked=unlocked,
-        originals=_original_files(),
+        categories=categories,
+        total_originals=len(orig_items),
         error=error,
     )
 
 
-@app.route("/download_file/<filename>")
-def download_file(filename):
+@app.route("/download_file/<path:identifier>")
+def download_file(identifier):
     if "user" not in session or not session.get("download_unlocked", False):
         return redirect(url_for("downloads"))
-    fpath = _safe_file(ORIGINALS_DIR, filename)
+    orig_list = _original_files()
+    fpath = _resolve_target_file(ORIGINALS_DIR, identifier, orig_list)
     return _file_response(fpath)
 
 

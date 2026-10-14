@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"><title>Visualizador Seguro - {{ filename }}</title>
+<style>
+body { 
+    font-family: Arial, sans-serif; 
+    background: #fdfdfd; 
+    color: #222; 
+    margin: 40px; 
+    line-height: 1.6;
+    user-select: none; 
+    -webkit-user-select: none; 
+    -moz-user-select: none; 
+    -ms-user-select: none; 
+}
+@media print { body { display: none !important; } }
+.watermark {
+    position: fixed;
+    top: 40%;
+    left: 20%;
+    font-size: 50px;
+    color: rgba(180, 40, 40, 0.08);
+    transform: rotate(-30deg);
+    z-index: 9999;
+    pointer-events: none;
+    font-weight: bold;
+}
+.toolbar { background: #0F2240; color: white; padding: 10px 20px; border-radius: 4px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.content { background: white; padding: 40px; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+</style>
+<script>
+document.addEventListener('contextmenu', event => event.preventDefault());
+document.addEventListener('copy', event => { event.preventDefault(); alert('Cópia de conteúdo restrita por segurança.'); });
+document.addEventListener('keydown', event => {
+    if (event.ctrlKey && (event.key === 'p' || event.key === 's' || event.key === 'c' || event.key === 'u')) {
+        event.preventDefault();
+        alert('Ação restrita por políticas de segurança do Repositório Shakyra.');
+    }
+});
+</script>
+</head>
+<body oncontextmenu="return false;">
+<div class="watermark">USO RESTRITO - {{ user }} - REPOSITÓRIO SHAKYRA</div>
+<div class="toolbar">
+<span>Visualizando: <b>{{ filename }}</b></span>
+<button onclick="window.close()" style="background:#B42828; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Fechar</button>
+</div>
+<div class="content">
+{{ content | safe }}
+</div>
+</body>
+</html>

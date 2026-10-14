@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"><title>Painel Administrador - Repositório Shakyra</title>
+<style>
+body { font-family: Arial; background: #f4f6f9; color: #333; margin: 0; padding: 20px; }
+.header { background: #0F2240; color: white; padding: 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: bold; }
+.container { margin-top: 20px; background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+input { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+button { background: #B42828; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background: #0F2240; color: white; }
+</style>
+</head>
+<body>
+<div class="header">
+<div><h2>Repositório Shakyra | Painel do Administrador</h2></div>
+<div class="nav">
+<a href="{{ url_for('dashboard') }}">Relatórios HTML</a>
+<a href="{{ url_for('downloads') }}">Centro de Downloads</a>
+<a href="{{ url_for('admin') }}">Painel Admin</a>
+<a href="{{ url_for('logout') }}" style="color:#ff8080;">Sair</a>
+</div>
+</div>
+<div class="container">
+<h3>Atribuir Credenciais / Senhas Temporárias a Novos Utilizadores</h3>
+<form method="POST">
+<input type="text" name="new_username" placeholder="Novo Utilizador" required>
+<input type="text" name="new_password" placeholder="Nova Senha Temporária" required>
+<button type="submit">Criar Utilizador</button>
+</form>
+{% if msg %}<p style="color:green; font-weight:bold;">{{ msg }}</p>{% endif %}
+
+<h3>Utilizadores Registados no Sistema</h3>
+<table>
+<tr><th>Utilizador</th><th>Função (Role)</th></tr>
+{% for uname, data in users.items() %}
+<tr><td>{{ uname }}</td><td>{{ data.role }}</td></tr>
+{% endfor %}
+</table>
+</div>
+</body>
+</html>

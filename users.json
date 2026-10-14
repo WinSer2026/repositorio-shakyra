@@ -1,0 +1,10 @@
+{
+    "admin": {
+        "password": "admin_master_2026",
+        "role": "admin"
+    },
+    "user1": {
+        "password": "temp_user_pass_1",
+        "role": "user"
+    }
+}

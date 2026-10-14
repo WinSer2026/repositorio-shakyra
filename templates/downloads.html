@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"><title>Centro de Downloads - Repositório Shakyra</title>
+<style>
+body { font-family: Arial; background: #f4f6f9; color: #333; margin: 0; padding: 20px; }
+.header { background: #0F2240; color: white; padding: 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: bold; }
+.container { margin-top: 20px; background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+ul { list-style: none; padding: 0; }
+li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.btn { background: #28a745; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 13px; }
+.lock-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 6px; text-align: center; margin-top: 20px; }
+input[type="password"] { padding: 8px; width: 250px; border: 1px solid #ccc; border-radius: 4px; }
+button { background: #0F2240; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="header">
+<div><h2>Repositório Shakyra | Centro de Downloads</h2></div>
+<div class="nav">
+<a href="{{ url_for('dashboard') }}">Relatórios HTML</a>
+<a href="{{ url_for('downloads') }}">Centro de Downloads</a>
+<a href="{{ url_for('logout') }}" style="color:#ff8080;">Sair</a>
+</div>
+</div>
+<div class="container">
+{% if not unlocked %}
+<div class="lock-box">
+<h3>Área de Download Protegida por Senha</h3>
+<p>Para aceder aos ficheiros originais (download individual ou completo), introduza a senha de download.</p>
+<form method="POST">
+<input type="password" name="download_password" placeholder="Senha de Download" required>
+<button type="submit">Desbloquear Downloads</button>
+</form>
+{% if error %}<p style="color:red; font-size:13px;">{{ error }}</p>{% endif %}
+</div>
+{% else %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h3>Ficheiros Originais Disponíveis para Download</h3>
+<a class="btn" href="{{ url_for('download_all') }}" style="background:#0F2240; font-size:15px; padding:10px 20px;">📦 Descarregar Tudo (.ZIP)</a>
+</div>
+<ul>
+{% for f in originals %}
+<li>
+<span>📁 {{ f }}</span>
+<a class="btn" href="{{ url_for('download_file', filename=f) }}">Descarregar Ficheiro</a>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+</div>
+</body>
+</html>

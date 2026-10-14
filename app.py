@@ -4,6 +4,8 @@ Funciona em execução local (`python app.py`) e no runtime Python da Vercel,
 que deteta automaticamente o entrypoint `app.py` deste repositório.
 """
 
+import hashlib
+import hmac
 import json
 import os
 import unicodedata
@@ -22,6 +24,7 @@ from flask import (
     stream_with_context,
     url_for,
 )
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 REPO_DIR = Path(__file__).parent.resolve()
 DOCS_HTML_DIR = REPO_DIR / "docs_html"
@@ -42,6 +45,9 @@ TMP_USERS_FILE = TMP_DIR / "shakyra_users.json"
 
 STREAM_THRESHOLD = 3 * 1024 * 1024
 CHUNK_SIZE = 256 * 1024
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "shakyra_secure_repository_secret_key_2026")
 
 
 def _is_dir_writable(directory):
@@ -72,25 +78,65 @@ USERS_STORE = _resolve_users_file()
 
 
 def load_users():
-    for path in (USERS_STORE, USERS_FILE):
+    """Carrega os utilizadores dando prioridade aos ficheiros modificados."""
+    for path in (TMP_USERS_FILE, USERS_STORE, USERS_FILE):
+        if not path.is_file():
+            continue
         try:
             users = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(users, dict) and users:
+                return users
         except (OSError, ValueError):
             continue
-        if isinstance(users, dict) and users:
-            return users
     return dict(DEFAULT_USERS)
 
 
 def save_users(users):
+    """Guarda os utilizadores no armazenamento disponível."""
     payload = json.dumps(users, indent=4, ensure_ascii=False)
-    for path in (USERS_STORE, TMP_USERS_FILE):
+    saved = False
+    for path in (TMP_USERS_FILE, USERS_STORE, USERS_FILE):
         try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(payload, encoding="utf-8")
-            return True
+            saved = True
         except OSError:
             continue
-    return False
+    return saved
+
+
+def _get_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="shakyra_access_token")
+
+
+def generate_access_token(username, role="user"):
+    s = _get_serializer()
+    return s.dumps({"user": username, "role": role})
+
+
+def verify_access_token(token, max_age=30 * 86400):
+    """Valida token com validade máxima de até 30 dias."""
+    s = _get_serializer()
+    try:
+        data = s.loads(token, max_age=max_age)
+        return data
+    except (SignatureExpired, BadSignature, Exception):
+        return None
+
+
+def generate_temp_password(username):
+    """Gera senha temporária determinística que funciona sempre em serverless."""
+    clean_user = username.lower().strip()
+    h = hmac.new(app.secret_key.encode(), clean_user.encode(), hashlib.sha256).hexdigest()[:8]
+    return f"temp_{h}"
+
+
+def is_valid_temp_password(username, password):
+    """Verifica se a senha temporária fornecida corresponde ao HMAC assinado."""
+    if not username or not password:
+        return False
+    expected = generate_temp_password(username)
+    return hmac.compare_digest(password.strip(), expected)
 
 
 def _doc_files():
@@ -229,10 +275,6 @@ def _file_response(path):
     return response
 
 
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "shakyra_secure_repository_secret_key_2026")
-
-
 @app.route("/")
 def index():
     if "user" not in session:
@@ -242,18 +284,60 @@ def index():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    # 1. Acesso automático com token de convite no URL (?token=... ou ?access=...)
+    token = request.args.get("token") or request.args.get("access")
+    if token:
+        data = verify_access_token(token)
+        if data and "user" in data:
+            session["user"] = data["user"]
+            session["role"] = data.get("role", "user")
+            return redirect(url_for("dashboard"))
+        error = "O link de acesso expirou ou é inválido. Solicite novas credenciais ao administrador."
+        return render_template("login.html", error=error)
+
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         users = load_users()
         account = users.get(username)
+        
+        authenticated = False
+        user_role = "user"
+        
+        # Validação normal de utilizador registado
         if account and account.get("password") == password:
+            authenticated = True
+            user_role = account.get("role", "user")
+        # Validação por senha temporária assinada determinística (sempre funcional em serverless)
+        elif is_valid_temp_password(username, password):
+            authenticated = True
+            user_role = "user"
+            # Registar na lista para manter coerência
+            users[username] = {"password": password, "role": "user"}
+            save_users(users)
+            
+        if authenticated:
             session["user"] = username
-            session["role"] = account.get("role", "user")
+            session["role"] = user_role
             return redirect(url_for("dashboard"))
+            
         error = "Credenciais inválidas. Verifique o seu nome de utilizador e senha."
     return render_template("login.html", error=error)
+
+
+@app.route("/access")
+def access():
+    """Rota direta para links de convite e credenciais temporárias com 1 clique."""
+    token = request.args.get("token") or request.args.get("key")
+    if not token:
+        return redirect(url_for("login"))
+    data = verify_access_token(token)
+    if data and "user" in data:
+        session["user"] = data["user"]
+        session["role"] = data.get("role", "user")
+        return redirect(url_for("dashboard"))
+    return render_template("login.html", error="Este link de acesso temporário expirou ou é inválido.")
 
 
 @app.route("/logout")
@@ -271,6 +355,7 @@ def healthz():
         "originals": len(_original_files()),
         "templates": TEMPLATES_DIR.is_dir(),
         "zip": ZIP_FILE.is_file(),
+        "users_count": len(load_users()),
         "users_file": str(USERS_STORE),
         "path": request.path,
         "script_name": request.environ.get("SCRIPT_NAME", ""),
@@ -282,7 +367,6 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
     doc_items = _get_doc_items()
-    # Agrupar por categorias
     categories = {}
     for item in doc_items:
         categories.setdefault(item["category"], []).append(item)
@@ -360,18 +444,78 @@ def download_all():
 def admin():
     if "user" not in session or session.get("role") != "admin":
         return redirect(url_for("dashboard"))
+        
     users = load_users()
     msg = None
+    msg_type = "success"
+    new_credentials = None
+    
     if request.method == "POST":
-        new_user = (request.form.get("new_username") or "").strip()
-        new_pass = request.form.get("new_password") or ""
-        if new_user and new_pass:
-            users[new_user] = {"password": new_pass, "role": "user"}
-            if save_users(users):
-                msg = "Utilizador '%s' criado com sucesso!" % new_user
+        action = request.form.get("action", "create")
+        
+        if action == "delete":
+            del_user = (request.form.get("delete_username") or "").strip()
+            if del_user == "admin":
+                msg = "Não é permitido eliminar o utilizador principal 'admin'."
+                msg_type = "error"
+            elif del_user in users:
+                del users[del_user]
+                save_users(users)
+                msg = f"Utilizador '{del_user}' removido com sucesso."
+                msg_type = "success"
             else:
-                msg = "Não foi possível guardar o utilizador neste ambiente."
-    return render_template("admin.html", users=users, msg=msg)
+                msg = f"Utilizador '{del_user}' não encontrado."
+                msg_type = "error"
+                
+        else: # Criar ou atribuir credenciais
+            new_user = (request.form.get("new_username") or "").strip()
+            new_pass = (request.form.get("new_password") or "").strip()
+            role = request.form.get("role", "user")
+            
+            if new_user:
+                # Se não forneceu senha, gera senha temporária automática
+                if not new_pass:
+                    new_pass = generate_temp_password(new_user)
+                    
+                users[new_user] = {"password": new_pass, "role": role}
+                if save_users(users):
+                    token = generate_access_token(new_user, role)
+                    base_url = request.host_url.rstrip("/")
+                    access_url = f"{base_url}/access?token={token}"
+                    new_credentials = {
+                        "username": new_user,
+                        "password": new_pass,
+                        "role": role,
+                        "access_url": access_url
+                    }
+                    msg = f"Credenciais para '{new_user}' atribuídas e ativadas com sucesso!"
+                    msg_type = "success"
+                else:
+                    msg = "Não foi possível guardar o utilizador neste ambiente."
+                    msg_type = "error"
+            else:
+                msg = "O nome de utilizador é obrigatório."
+                msg_type = "error"
+                
+    # Preparar lista de utilizadores com tokens de acesso direto
+    user_list = []
+    base_url = request.host_url.rstrip("/")
+    for uname, udata in users.items():
+        token = generate_access_token(uname, udata.get("role", "user"))
+        user_list.append({
+            "username": uname,
+            "password": udata.get("password", "—"),
+            "role": udata.get("role", "user"),
+            "access_url": f"{base_url}/access?token={token}"
+        })
+        
+    return render_template(
+        "admin.html",
+        users=user_list,
+        msg=msg,
+        msg_type=msg_type,
+        new_credentials=new_credentials,
+    )
 
 
 if __name__ == "__main__":

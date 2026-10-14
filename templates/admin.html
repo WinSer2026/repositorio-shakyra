@@ -1,45 +1,396 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-<meta charset="UTF-8"><title>Painel Administrador - Repositório Shakyra</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Administrador - Repositório Shakyra</title>
 <style>
-body { font-family: Arial; background: #f4f6f9; color: #333; margin: 0; padding: 20px; }
-.header { background: #0F2240; color: white; padding: 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-.nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: bold; }
-.container { margin-top: 20px; background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-input { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
-button { background: #B42828; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-th { background: #0F2240; color: white; }
+:root {
+    --primary: #0F2240;
+    --primary-light: #1b365d;
+    --accent: #B42828;
+    --accent-hover: #d93636;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --success: #16a34a;
+    --danger: #dc2626;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+}
+.header {
+    background: var(--primary);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    box-shadow: 0 4px 12px rgba(15,34,64,0.15);
+}
+.header h2 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+.header p { margin: 4px 0 0; font-size: 13px; color: #94a3b8; }
+.nav { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.nav a {
+    color: white;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    transition: background 0.2s;
+}
+.nav a:hover { background: rgba(255,255,255,0.2); }
+.nav a.logout { background: rgba(220,38,38,0.25); color: #fca5a5; }
+
+.main-container {
+    max-width: 1000px;
+    margin: 25px auto 0;
+}
+
+.card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 25px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.card h3 {
+    margin: 0 0 16px;
+    font-size: 17px;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+.alert-success { background: #dcfce7; border: 1px solid #bbf7d0; color: #166534; }
+.alert-error { background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; }
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.form-control {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(15,34,64,0.08);
+}
+.input-with-action {
+    display: flex;
+    gap: 8px;
+}
+.btn-mini {
+    background: #e2e8f0;
+    border: none;
+    padding: 0 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+}
+.btn-mini:hover { background: #cbd5e1; }
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: var(--accent); transform: translateY(-1px); }
+
+/* Caixa de Sucesso com Link de Convite */
+.invite-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+}
+.invite-box h4 {
+    margin: 0 0 10px;
+    color: #166534;
+    font-size: 15px;
+}
+.invite-details {
+    background: white;
+    border: 1px solid #dcfce7;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: monospace;
+    font-size: 13px;
+    color: #1e293b;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.btn-copy {
+    background: #16a34a;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-copy:hover { background: #15803d; }
+
+/* Tabela de Utilizadores */
+.table-responsive { overflow-x: auto; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+}
+th {
+    background: #f1f5f9;
+    color: var(--primary);
+    text-align: left;
+    padding: 12px 14px;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+}
+td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+tr:hover td { background: #f8fafc; }
+
+.badge-role {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+.badge-admin {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.btn-table-action {
+    background: #0284c7;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-table-action:hover { background: #0369a1; }
+.btn-delete {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-delete:hover { background: #fca5a5; color: #7f1d1d; }
 </style>
 </head>
 <body>
-<div class="header">
-<div><h2>Repositório Shakyra | Painel do Administrador</h2></div>
-<div class="nav">
-<a href="{{ url_for('dashboard') }}">Relatórios HTML</a>
-<a href="{{ url_for('downloads') }}">Centro de Downloads</a>
-<a href="{{ url_for('admin') }}">Painel Admin</a>
-<a href="{{ url_for('logout') }}" style="color:#ff8080;">Sair</a>
-</div>
-</div>
-<div class="container">
-<h3>Atribuir Credenciais / Senhas Temporárias a Novos Utilizadores</h3>
-<form method="POST">
-<input type="text" name="new_username" placeholder="Novo Utilizador" required>
-<input type="text" name="new_password" placeholder="Nova Senha Temporária" required>
-<button type="submit">Criar Utilizador</button>
-</form>
-{% if msg %}<p style="color:green; font-weight:bold;">{{ msg }}</p>{% endif %}
 
-<h3>Utilizadores Registados no Sistema</h3>
-<table>
-<tr><th>Utilizador</th><th>Função (Role)</th></tr>
-{% for uname, data in users.items() %}
-<tr><td>{{ uname }}</td><td>{{ data.role }}</td></tr>
-{% endfor %}
-</table>
+<div class="header">
+    <div>
+        <h2>REPOSITÓRIO SHAKYRA | PAINEL DO ADMINISTRADOR</h2>
+        <p>Gestão de Acessos e Atribuição de Credenciais Temporárias</p>
+    </div>
+    <div class="nav">
+        <a href="{{ url_for('dashboard') }}">Relatórios HTML</a>
+        <a href="{{ url_for('downloads') }}">Centro de Downloads</a>
+        <a href="{{ url_for('admin') }}">Painel Admin</a>
+        <a href="{{ url_for('logout') }}" class="logout">Terminar Sessão</a>
+    </div>
 </div>
+
+<div class="main-container">
+
+    {% if msg %}
+    <div class="alert alert-{{ msg_type }}">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Cartão de Criação / Atribuição -->
+    <div class="card">
+        <h3>🔑 Atribuir Credenciais / Senhas Temporárias a Novos Utilizadores</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:0; margin-bottom:20px;">
+            Crie acessos para consultores, docentes ou avaliadores. O sistema gera credenciais tradicionais e um <b>Link de Acesso Direto com 1 Clique</b> que funciona de imediato em qualquer dispositivo.
+        </p>
+
+        <form method="POST">
+            <input type="hidden" name="action" value="create">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="new_username">Nome de Utilizador</label>
+                    <input type="text" id="new_username" name="new_username" class="form-control" placeholder="ex: avaliador_udm" required>
+                </div>
+                <div class="form-group">
+                    <label for="new_password">Senha Temporária</label>
+                    <div class="input-with-action">
+                        <input type="text" id="new_password" name="new_password" class="form-control" placeholder="Deixe em branco para gerar auto">
+                        <button type="button" class="btn-mini" onclick="generateAutoPassword()">🎲 Gerar</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="role">Perfil de Acesso</label>
+                    <select id="role" name="role" class="form-control">
+                        <option value="user" selected>Utilizador (Consulta e Downloads)</option>
+                        <option value="admin">Administrador (Gestão Total)</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary">Atribuir e Ativar Credenciais</button>
+        </form>
+
+        {% if new_credentials %}
+        <div class="invite-box" id="newInviteBox">
+            <h4>✅ Convite Gerado com Sucesso</h4>
+            <div class="invite-details" id="inviteText">Olá! Seguem as credenciais de acesso ao Repositório Shakyra:
+
+🌐 Link de Acesso Direto (1 Clique):
+{{ new_credentials.access_url }}
+
+Ou aceda com Utilizador e Senha em https://repositorio-shakyra.vercel.app
+• Utilizador: {{ new_credentials.username }}
+• Senha: {{ new_credentials.password }}
+• Perfil: {{ new_credentials.role }}</div>
+            <button type="button" class="btn-copy" onclick="copyInviteText()">📋 Copiar Convite para WhatsApp / Email</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tabela de Utilizadores Existentes -->
+    <div class="card">
+        <h3>👥 Utilizadores Registados no Sistema ({{ users | length }})</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:0; margin-bottom:15px;">
+            Pode copiar o link de acesso direto de qualquer utilizador ou remover contas temporárias.
+        </p>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Utilizador</th>
+                        <th>Senha Atual</th>
+                        <th>Função</th>
+                        <th>Acesso Rápido</th>
+                        <th style="text-align:right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td><b>{{ u.username }}</b></td>
+                        <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px;">{{ u.password }}</code></td>
+                        <td>
+                            <span class="badge-role {% if u.role == 'admin' %}badge-admin{% endif %}">
+                                {{ u.role | upper }}
+                            </span>
+                        </td>
+                        <td>
+                            <button type="button" class="btn-table-action" onclick="copyLink('{{ u.access_url }}')">🔗 Copiar Link 1-Clique</button>
+                        </td>
+                        <td style="text-align:right;">
+                            {% if u.username != 'admin' %}
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza de que deseja eliminar o utilizador {{ u.username }}?');">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="delete_username" value="{{ u.username }}">
+                                <button type="submit" class="btn-delete">🗑️ Eliminar</button>
+                            </form>
+                            {% else %}
+                            <span style="font-size:12px; color:#94a3b8;">Principal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function generateAutoPassword() {
+    var chars = "abcdefghjkmnpqrstuvwxyz23456789";
+    var pass = "temp_";
+    for (var i = 0; i < 6; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById("new_password").value = pass;
+}
+
+function copyInviteText() {
+    var text = document.getElementById("inviteText").innerText;
+    navigator.clipboard.writeText(text).then(function() {
+        alert("Convite copiado com sucesso! Pode colar agora no WhatsApp ou Email.");
+    }).catch(function() {
+        prompt("Copie manualmente o texto abaixo:", text);
+    });
+}
+
+function copyLink(link) {
+    navigator.clipboard.writeText(link).then(function() {
+        alert("Link de acesso direto copiado para a área de transferência!");
+    }).catch(function() {
+        prompt("Copie o link abaixo:", link);
+    });
+}
+</script>
+
 </body>
 </html>

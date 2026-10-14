@@ -6,7 +6,7 @@ import zipfile
 app = Flask(__name__)
 app.secret_key = "shakyra_secure_repository_secret_key_2026"
 
-REPO_DIR = Path(r"C:\Users\USER\Documents\shakyra\Repositorio_Shakyra")
+REPO_DIR = Path(__file__).parent.resolve()
 DOCS_HTML_DIR = REPO_DIR / "docs_html"
 ORIGINALS_DIR = REPO_DIR / "originals"
 USERS_FILE = REPO_DIR / "users.json"

@@ -2,13 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "app.py": {
-      "includeFiles": [
-        "templates/**",
-        "docs_html/**",
-        "originals/**",
-        "users.json",
-        "shakyra_completo.zip"
-      ]
+      "includeFiles": "{templates/**,docs_html/**,originals/**,users.json,shakyra_completo.zip}"
     }
   }
 }

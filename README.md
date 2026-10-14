@@ -2,7 +2,7 @@
 
 Repositório privado de documentos e relatórios do projeto de investigação
 **Shakyra Honoré Kamdoum Noussi** (Universidade Técnica de Moçambique — Engenharia
-e Gestão Logística): 78 relatórios em HTML para consulta protegida e 108 ficheiros
+e Gestão Logística): 81 relatórios em HTML para consulta protegida e 111 ficheiros
 originais (DOCX/PDF/XLSX/PPTX) para download.
 
 ## Acesso
@@ -71,8 +71,8 @@ Detalhes importantes:
 - **Downloads grandes.** Ficheiros acima de 3 MB (o `.zip` tem ~9 MB) são
   enviados em *streaming*, para não exceder o limite de 4,5 MB por resposta das
   Vercel Functions.
-- Depois de cada deploy, confirmar em `/healthz` que `docs_html` = 78 e
-  `originals` = 108.
+- Depois de cada deploy, confirmar em `/healthz` que `docs_html` = 81 e
+  `originals` = 111.
 
 ## Estrutura
 

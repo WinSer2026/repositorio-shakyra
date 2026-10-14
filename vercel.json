@@ -1,15 +1,14 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "includeFiles": [
+        "templates/**",
+        "docs_html/**",
+        "originals/**",
+        "users.json",
+        "shakyra_completo.zip"
+      ]
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "destination": "/api/index.py"
-    }
-  ]
+  }
 }

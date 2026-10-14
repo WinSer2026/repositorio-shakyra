@@ -188,6 +188,8 @@ def healthz():
         "templates": TEMPLATES_DIR.is_dir(),
         "zip": ZIP_FILE.is_file(),
         "users_file": str(USERS_STORE),
+        "path": request.path,
+        "script_name": request.environ.get("SCRIPT_NAME", ""),
     }
 
 
